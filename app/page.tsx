@@ -1,60 +1,118 @@
 "use client";
+
 import { useState } from 'react';
 
+// Define types to satisfy TypeScript and ensure data consistency
+interface StoryPage {
+  text: string;
+  question: string;
+  options: string[];
+}
+
+interface Story {
+  title: string;
+  pages: StoryPage[];
+}
+
 export default function CircleTimeApp() {
-  const [studentName, setStudentName] = useState("the class");
+  // --- State Management ---
+  const [studentName, setStudentName] = useState("");
   const [ageGroup, setAgeGroup] = useState("3-4");
+  const [topic, setTopic] = useState("");
   const [page, setPage] = useState(0);
   const [isStarted, setIsStarted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [story, setStory] = useState<Story | null>(null);
 
-  const storyData = [
-    {
-      text: `Look! Look out the window, ${studentName}! It is rain. Rain, rain, rain.`,
-      image: "🌧️",
-      question: "What is falling from the sky?",
-      options: ["Sun", "Rain"]
-    },
-    {
-      text: `Hold your umbrella, ${studentName}! It is a big yellow umbrella. We are dry!`,
-      image: "☂️",
-      question: "Is the umbrella red or yellow?",
-      options: ["Yellow", "Red"]
+  // --- API Logic ---
+  const handleStart = async () => {
+    if (!studentName || !topic) {
+      alert("Please enter a name and a topic for the class!");
+      return;
     }
-  ];
 
+    setIsLoading(true);
+    try {
+      // Calling our internal API route that connects to DeepSeek
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentName, ageGroup, topic })
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch story");
+
+      const data: Story = await response.json();
+      setStory(data);
+      setIsStarted(true);
+    } catch (error) {
+      console.error("Story Generation Error:", error);
+      alert("The magic book is stuck! Let's try clicking 'Start' again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setIsStarted(false);
+    setStory(null);
+    setPage(0);
+  };
+
+  // --- View 1: Teacher Dashboard ---
   if (!isStarted) {
     return (
       <main className="flex flex-col items-center justify-center min-h-screen bg-yellow-50 p-6">
-        <div className="bg-white p-10 rounded-3xl shadow-2xl border-4 border-blue-400 max-w-md w-full">
-          <h1 className="text-3xl font-bold text-blue-600 mb-6 text-center">Teacher Dashboard</h1>
+        <div className="bg-white p-8 md:p-12 rounded-3xl shadow-2xl border-4 border-blue-400 max-w-md w-full">
+          <h1 className="text-3xl font-black text-blue-600 mb-2 text-center">CircleTime AI</h1>
+          <p className="text-gray-500 text-center mb-8 font-medium">Create a story for your lesson</p>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Student&apos;s Name:</label>
               <input
                 type="text"
                 placeholder="e.g. Leo"
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none"
+                className="w-full p-4 border-2 border-gray-100 rounded-2xl focus:border-blue-400 outline-none text-gray-800 transition-colors"
                 onChange={(e) => setStudentName(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Target Age:</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Today&apos;s Topic:</label>
+              <input
+                type="text"
+                placeholder="e.g. A rainy day in Shanghai"
+                className="w-full p-4 border-2 border-gray-100 rounded-2xl focus:border-blue-400 outline-none text-gray-800 transition-colors"
+                onChange={(e) => setTopic(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Learning Level:</label>
               <select
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none"
+                className="w-full p-4 border-2 border-gray-100 rounded-2xl focus:border-blue-400 outline-none text-gray-800 transition-colors bg-white"
                 onChange={(e) => setAgeGroup(e.target.value)}
               >
-                <option value="3-4">Ages 3-4 (Simple)</option>
-                <option value="5-6">Ages 5-6 (Advanced)</option>
+                <option value="3-4">Early Years (Ages 3-4)</option>
+                <option value="5-6">Pre-K / K3 (Ages 5-6)</option>
               </select>
             </div>
 
             <button
-              onClick={() => setIsStarted(true)}
-              className="w-full bg-blue-500 text-white font-bold py-4 rounded-2xl hover:bg-blue-600 transition-all shadow-lg active:scale-95 mt-4"
+              onClick={handleStart}
+              disabled={isLoading}
+              className={`w-full text-white font-black text-lg py-5 rounded-2xl transition-all shadow-lg active:scale-95 flex justify-center items-center ${
+                isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
+              }`}
             >
-              Start Circle Time 🚀
+              {isLoading ? (
+                <span className="flex items-center gap-3">
+                  <span className="animate-spin text-2xl">✨</span> Writing Story...
+                </span>
+              ) : (
+                "Start Circle Time 🚀"
+              )}
             </button>
           </div>
         </div>
@@ -62,31 +120,81 @@ export default function CircleTimeApp() {
     );
   }
 
-  return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-blue-50 p-6">
-      <div className="bg-white p-10 rounded-3xl shadow-2xl border-8 border-yellow-400 max-w-xl w-full text-center">
-        <div className="text-9xl mb-8">{storyData[page].image}</div>
-        <p className="text-3xl font-bold text-gray-800 mb-8 leading-tight">{storyData[page].text}</p>
+// --- View 2: Interactive Story Theater ---
 
-        <div className="bg-blue-100 p-6 rounded-2xl border-2 border-blue-300">
-          <p className="text-xl font-semibold mb-6 text-blue-900">{storyData[page].question}</p>
-          <div className="flex gap-4 justify-center">
-            {storyData[page].options.map((option) => (
+  // 1. Safety Guard: Check if story and pages exist before accessing index
+  const hasPages = story?.pages && story.pages.length > 0;
+  const currentPage = hasPages ? story.pages[page] : null;
+
+  // 2. Fallback UI: If started but data is missing, show a recovery screen
+  if (isStarted && !currentPage) {
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen bg-blue-50 p-6">
+        <div className="bg-white p-10 rounded-3xl shadow-2xl text-center border-4 border-red-200 max-w-sm">
+          <div className="text-6xl mb-4">😵</div>
+          <p className="text-xl font-bold text-gray-800 mb-6">The storybook is empty!</p>
+          <button
+            onClick={handleReset}
+            className="bg-blue-500 text-white px-8 py-3 rounded-full font-bold hover:bg-blue-600 transition-all"
+          >
+            Try Again
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // 3. Main Story Render
+  return (
+    <main className="flex flex-col items-center justify-center min-h-screen bg-blue-50 p-4 md:p-10">
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border-[12px] border-yellow-400 max-w-2xl w-full text-center relative">
+
+        {/* Progress indicator */}
+        <div className="absolute top-6 right-8 text-yellow-500 font-bold text-sm uppercase tracking-widest">
+          Page {page + 1} of {story?.pages?.length || 0}
+        </div>
+
+        {/* Visual Placeholder */}
+        <div className="text-[120px] mb-10 drop-shadow-sm">🌟</div>
+
+        <h2 className="text-sm font-bold text-blue-300 mb-4 uppercase tracking-[0.3em]">
+          {story?.title}
+        </h2>
+
+        {/* Story Text */}
+        <p className="text-3xl md:text-4xl font-bold text-gray-800 mb-12 leading-tight min-h-[150px] flex items-center justify-center">
+          {currentPage?.text}
+        </p>
+
+        {/* Interaction Box */}
+        <div className="bg-blue-50 p-8 rounded-[2rem] border-4 border-dashed border-blue-200">
+          <p className="text-lg font-bold mb-6 text-blue-800">{currentPage?.question}</p>
+
+          <div className="flex flex-wrap gap-4 justify-center">
+            {currentPage?.options?.map((option: string) => (
               <button
                 key={option}
-                onClick={() => setPage(page === 0 ? 1 : 0)}
-                className="bg-white border-4 border-blue-500 text-blue-500 px-8 py-3 rounded-full font-black text-lg hover:bg-blue-500 hover:text-white transition-all shadow-md active:scale-95"
+                onClick={() => {
+                  if (story && page < story.pages.length - 1) {
+                    setPage(page + 1);
+                  } else {
+                    alert("The End! Great job listening!");
+                    handleReset();
+                  }
+                }}
+                className="bg-white border-4 border-blue-500 text-blue-600 px-10 py-4 rounded-full font-black text-xl hover:bg-blue-500 hover:text-white transition-all shadow-xl hover:shadow-blue-200 active:scale-95"
               >
                 {option}
               </button>
             ))}
           </div>
         </div>
+
         <button
-          onClick={() => {setIsStarted(false); setPage(0);}}
-          className="mt-8 text-gray-400 hover:text-gray-600 text-sm font-bold underline"
+          onClick={handleReset}
+          className="mt-10 text-gray-300 hover:text-red-400 text-xs font-bold uppercase tracking-widest transition-colors"
         >
-          ← Change Student
+          ✕ End Story
         </button>
       </div>
     </main>
